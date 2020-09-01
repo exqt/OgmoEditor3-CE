@@ -669,6 +669,8 @@ class Editor
 			draw.setAlpha(1);
 			draw.setupRenderTarget(level.data.size);
 
+			level.camera.setIdentity();
+
 			var i = level.layers.length - 1;
 			while(i >= 0) 
 			{
