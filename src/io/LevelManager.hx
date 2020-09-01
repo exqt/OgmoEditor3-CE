@@ -49,6 +49,8 @@ class LevelManager
 		{
 			if (EDITOR.worldEditorMode) return;
 			
+			EDITOR.level.generateLevelTexture();
+
 			this.moveToFront(level);
 			EDITOR.setLevel(level);
 			if (onSuccess != null)

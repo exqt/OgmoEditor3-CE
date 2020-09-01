@@ -1044,7 +1044,11 @@ class Editor
 		if (worldEditorMode == false && active == true)
 		{
 			if (!worldEditor.world.loaded) worldEditor.world.load();
-			worldEditor.world.centerCamera(EDITOR.level);
+			if (EDITOR.level != null)
+			{
+				EDITOR.level.generateLevelTexture();
+				worldEditor.world.centerCamera(EDITOR.level);
+			}
 		}
 
 		worldEditorMode = active;
