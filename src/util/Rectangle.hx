@@ -110,6 +110,13 @@ class Rectangle
 
 		return true;
 	}
+	
+	public function doOverlap(other:Rectangle):Bool
+	{
+		if (Math.max(left, other.left) > Math.min(right, other.right)) return false;
+		if (Math.max(top, other.top) > Math.min(bottom, other.bottom)) return false;
+		return true;
+	}
 
 	function get_left(): Float
 	{

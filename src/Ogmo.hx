@@ -185,7 +185,8 @@ class Ogmo
 			str = " " + ogmo.project.name + "   |" + str;
 			if (editor.active && editor.level != null)
 			{
-				str = " " + editor.level.displayName + "   |  " + str;
+				if (editor.worldEditorMode) str = " " + "World Editor" + "   |  " + str;
+				else str = " " + editor.level.displayName + "   |  " + str;
 				edited = true;
 			}
 		}

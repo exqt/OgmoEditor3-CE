@@ -18,11 +18,12 @@ import level.editor.ui.StickerDropdown;
 import rendering.GLRenderer;
 import util.Vector;
 import util.Keys;
+import modules.world.WorldEditor;
 
 import js.node.child_process.ChildProcess as ChildProcessObject;
 
 class Editor
-{	
+{ 
 	public var root: JQuery;
 	public var draw: GLRenderer;
 	public var overlay: GLRenderer;
@@ -53,6 +54,9 @@ class Editor
 	var lastOverlayUpdate:Float = 0;
 	var saveLevelAsImageRequested:Bool = false;
 
+	public var worldEditorMode:Bool = false;
+	public var worldEditor:WorldEditor = null;
+
 	var resizingLeft:Bool = false;
 	var resizingRight:Bool = false;
 	var resizingLayers:Bool = false;
@@ -73,6 +77,7 @@ class Editor
 		htmlOverlay = new JQuery(".editor_html_overlay#html_overlay");
 		htmlPropertyDisplayOverlay = new JQuery(".editor_html_property_display_overlay#html_property_display_overlay");
 		stickerDropdown = new StickerDropdown();
+		worldEditor = new WorldEditor();
 
 		propertyDisplayDropdown = new PropertyDisplayDropdown(OGMO.settings.propertyDisplay);
 
@@ -113,12 +118,16 @@ class Editor
 
 						if (e.which == Keys.MouseLeft)
 						{
-							if (!EDITOR.handles.onMouseDown(pos) && EDITOR.toolBelt.current != null)
+							if (worldEditorMode)
+								EDITOR.worldEditor.selectTool.onMouseDown(pos);
+							else if (!EDITOR.handles.onMouseDown(pos) && EDITOR.toolBelt.current != null)
 								EDITOR.toolBelt.current.onMouseDown(pos);
 						}
 						else if (e.which == Keys.MouseRight)
 						{
-							if (!EDITOR.handles.onRightDown(pos) && EDITOR.toolBelt.current != null)
+							if (worldEditorMode)
+								EDITOR.worldEditor.selectTool.onRightDown(pos);
+							else if (!EDITOR.handles.onRightDown(pos) && EDITOR.toolBelt.current != null)
 								EDITOR.toolBelt.current.onRightDown(pos);
 						}
 					}
@@ -140,12 +149,16 @@ class Editor
 
 						if (e.which == Keys.MouseLeft)
 						{
-							if (!EDITOR.handles.onMouseUp(pos) && EDITOR.toolBelt.current != null)
+							if (worldEditorMode)
+								EDITOR.worldEditor.selectTool.onMouseUp(pos);
+							else if (!EDITOR.handles.onMouseUp(pos) && EDITOR.toolBelt.current != null)
 								EDITOR.toolBelt.current.onMouseUp(pos);
 						}
 						else if (e.which == Keys.MouseRight && !EDITOR.handles.resizing)
 						{
-							if (!EDITOR.handles.onRightUp(pos) && EDITOR.toolBelt.current != null)
+							if (worldEditorMode)
+								EDITOR.worldEditor.selectTool.onRightUp(pos);
+							else if (!EDITOR.handles.onRightUp(pos) && EDITOR.toolBelt.current != null)
 								EDITOR.toolBelt.current.onRightUp(pos);
 						}
 					}
@@ -210,10 +223,11 @@ class Editor
 				{
 					var at = EDITOR.windowToCanvas(EDITOR.getEventPosition(e));
 
-					if ((e.originalEvent).wheelDelta > 0)
-						EDITOR.level.zoomCameraAt(1, at.x, at.y);
+					var wheelDir = (e.originalEvent).wheelDelta > 0 ? 1 : -1;
+					if (worldEditorMode)
+						worldEditor.world.zoomCameraAt(wheelDir, at.x, at.y);
 					else
-						EDITOR.level.zoomCameraAt(-1, at.x, at.y);
+						EDITOR.level.zoomCameraAt(wheelDir, at.x, at.y);
 				}
 			});
 
@@ -285,6 +299,11 @@ class Editor
 				});
 			});
 
+			new JQuery('.toggle-world-mode').click(function(e)
+			{
+				activeWorldEditorMode(!worldEditorMode);
+			});
+
 			new JQuery('.sticker-zoom').click((e) -> {
 				var zoom = (EDITOR.level.zoom.round() / EDITOR.level.zoom).max(1 / EDITOR.level.zoom);
 				EDITOR.level.setZoom(zoom);
@@ -312,7 +331,22 @@ class Editor
 		else
 			lastMouseMovePos = pos;
 
-		if (EDITOR.level != null)
+		if (worldEditorMode)
+		{
+			if (EDITOR.mouseMoving)
+			{
+				var n = EDITOR.windowToCanvas(pos);
+				EDITOR.worldEditor.world.moveCamera(EDITOR.mouseMovePos.x - n.x, EDITOR.mouseMovePos.y - n.y);
+				EDITOR.mouseMovePos = n;
+			}
+			else
+			{
+				var n = EDITOR.windowToLevel(pos).round();
+				// EDITOR.handles.onMouseMove(n);
+				EDITOR.worldEditor.selectTool.onMouseMove(n);
+			}
+		}
+		else if (EDITOR.level != null)
 		{
 			if (EDITOR.mouseMoving)
 			{
@@ -327,23 +361,34 @@ class Editor
 				if (EDITOR.toolBelt.current != null)
 					EDITOR.toolBelt.current.onMouseMove(n);
 			}
-
-			updateMouseReadout();
 		}
+
+		updateMouseReadout();
 	}
 
 	public function updateZoomReadout():Void
 	{
-		if (EDITOR.level != null)
+		if (EDITOR.level != null || worldEditorMode)
 		{
-			var z = Math.round(EDITOR.level.camera.a * 100);
+			var camera = worldEditorMode ? EDITOR.worldEditor.world.camera : EDITOR.level.camera;
+			var z = Math.round(camera.a * 100);
 			new JQuery(".sticker-zoom_text").text(z + "%");
 		}
 	}
 
 	public function updateMouseReadout():Void
 	{
-		if (EDITOR.level != null && EDITOR.level.currentLayer != null)
+		if (worldEditorMode)
+		{
+			var lvl = EDITOR.windowToLevel(lastMouseMovePos);
+			var grid = EDITOR.worldEditor.world.levelToGrid(lvl);
+
+			var str = "( " + Math.round(lvl.x) + ", " + Math.round(lvl.y) + " )"
+					+ " ( " + Math.round(grid.x) + ", " + Math.round(grid.y) + " )";
+
+			new JQuery(".sticker-mouse_text").text(str);
+		}
+		else if (EDITOR.level != null && EDITOR.level.currentLayer != null)
 		{
 			var lvl = EDITOR.windowToLevel(lastMouseMovePos);
 			var grid = EDITOR.level.currentLayer.levelToGrid(lvl);
@@ -452,7 +497,24 @@ class Editor
 		updateMouseReadout();
 		layersPanel.refresh();
 
-		if (currentLayerEditor != null)
+		if (worldEditorMode)
+		{
+			var paletteElement = new JQuery(".editor_palette");
+			var selectionElement = new JQuery(".editor_selection");
+
+			paletteElement.empty();
+			selectionElement.empty();
+
+			worldEditor.selectionPanel.populate(selectionElement);
+			if (!selectionElement.is(":visible"))
+			{
+				new JQuery(".editor_palette_resizer").show();
+				paletteElement.height(lastPaletteHeight);
+				selectionElement.show();
+			}
+			return;
+		}
+		else if (currentLayerEditor != null)
 		{
 			var paletteElement = new JQuery(".editor_palette");
 			var selectionElement = new JQuery(".editor_selection");
@@ -512,7 +574,8 @@ class Editor
 			isDirty = false;
 			draw.clear();
 
-			if (level != null) drawLevel();
+			if (worldEditorMode) drawWorld();
+			else if (level != null) drawLevel();
 		}
 
 		//Draw the overlay
@@ -522,8 +585,7 @@ class Editor
 			isOverlayDirty = false;
 			overlay.clear();
 
-			if (level != null)
-				drawOverlay();
+			drawOverlay();
 			lastOverlayUpdate = 0;
 		}
 	}
@@ -631,7 +693,17 @@ class Editor
 
 	public function drawOverlay():Void
 	{
+		if (level == null) return;
+
 		overlay.setAlpha(1);
+
+		if (worldEditorMode) 
+		{
+			worldEditor.drawOverlay();
+			worldEditor.selectTool.drawOverlay();
+			overlay.finishDrawing();
+			return;
+		}
 
 		//Current Layer Overlay
 		if (EDITOR.layerEditors[level.currentLayerID] != null) EDITOR.layerEditors[level.currentLayerID].drawOverlay();
@@ -645,6 +717,11 @@ class Editor
 			overlay.drawLineRect(level.zoomRect, Color.white);
 
 		overlay.finishDrawing();
+	}
+
+	public function drawWorld():Void
+	{
+		worldEditor.draw();
 	}
 
 	public function saveLevelAsImage():Void
@@ -681,7 +758,8 @@ class Editor
 	{
 		if (into == null) into = new Vector();
 
-		level.camera.transformPoint(pos, into);
+		if (worldEditorMode) worldEditor.world.camera.transformPoint(pos, into);
+		else level.camera.transformPoint(pos, into);
 
 		return into;
 	}
@@ -690,7 +768,8 @@ class Editor
 	{
 		if (into == null) into = new Vector();
 
-		level.cameraInv.transformPoint(pos, into);
+		if (worldEditorMode) worldEditor.world.cameraInv.transformPoint(pos, into);
+		else level.cameraInv.transformPoint(pos, into);
 
 		return into;
 	}
@@ -718,6 +797,12 @@ class Editor
 
 	public function keyPress(key:Int):Void
 	{
+		if (worldEditorMode)
+		{
+			worldEditor.keyPress(key);
+			return;
+		}
+
 		inline function dPress(key:Int) 
 		{
 			if (OGMO.ctrl) EDITOR.setLayer(key - Keys.D1);
@@ -946,10 +1031,29 @@ class Editor
 				lastArrows.y *= moveSpeed;
 			}
 
-			if (level != null) level.moveCamera(lastArrows.x, lastArrows.y);
+			if (worldEditorMode) worldEditor.world.moveCamera(lastArrows.x, lastArrows.y);
+			else if (level != null) level.moveCamera(lastArrows.x, lastArrows.y);
 			onMouseMove();
 		}
 	}
+	
+	public function activeWorldEditorMode(active:Bool)
+	{
+		if (worldEditorMode == false && active == true)
+		{
+			if (!worldEditor.world.loaded) worldEditor.world.load();
+			worldEditor.world.centerCamera(EDITOR.level);
+		}
+
+		worldEditorMode = active;
+		if (worldEditorMode) setLayerUtil(-1);
+		else setLayerUtil(0);
+
+		OGMO.updateWindowTitle();
+
+		dirty();
+		Browser.window.setTimeout(() -> dirty(), 10);
+	}	
 
 	function get_currentLayerEditor(): LayerEditor
 	{

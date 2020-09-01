@@ -17,7 +17,7 @@
     }
     &_panel-left
     {
-        width: 240px;
+        width: 272px;
         display: flex;
         flex-direction: column;
         overflow-y: hidden;
@@ -197,7 +197,7 @@
 
     & .button { width: 100%; }
     & .close-project { border: 0; width: 34px; }
-    & .refresh-project, .play-command { border-right: 0; border-top: 0; border-bottom: 0; width: 34px; }
+    & .refresh-project, .play-command, .toggle-world-mode { border-right: 0; border-top: 0; border-bottom: 0; width: 34px; }
     & .edit-project { border-right: 0; border-top: 0; border-bottom: 0; }
 }
 
@@ -352,7 +352,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: scroll;
 
     & .entityList
     {
@@ -367,6 +367,14 @@
         color: #666;
         padding: 0 5px;
         padding-bottom: 10px;
+    }
+}
+
+.world-level-list
+{
+    & > tr:hover
+    {
+        background-color: #db1d81;
     }
 }
 

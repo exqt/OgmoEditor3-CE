@@ -1,5 +1,6 @@
 package level.data;
 
+import rendering.Texture;
 import js.Browser;
 import util.Popup;
 import electron.renderer.Remote;
@@ -32,6 +33,7 @@ class Level
 	public var project:Project;
 	public var zoomRect:Rectangle = null;
 	public var zoomTimer:Int;
+	public var texture:Texture;
 
 	public var safeToClose(get, null):Bool;
 	public var displayName(get, null):String;
@@ -42,6 +44,7 @@ class Level
 	public var externallyDeleted(get, null):Bool;
 	public var externallyModified(get, null):Bool;
 	public var zoom(get, null):Float;
+	public var rect(get, null):Rectangle;
 
 	public static function isUnsavedPath(path:String):Bool
 	{
@@ -360,6 +363,52 @@ class Level
 		EDITOR.overlayDirty();
 	}
 
+	public function generateLevelTexture():Texture
+  {
+		if (texture != null) texture.dispose();
+		
+		var camBackup = EDITOR.worldEditor.world.camera.clone();
+		var modeBackup = EDITOR.worldEditorMode;
+		EDITOR.worldEditorMode = true;
+		EDITOR.worldEditor.world.camera.setIdentity();
+
+		var draw = EDITOR.draw;
+		var t = draw.setupRenderTarget(data.size);
+		
+		draw.setAlpha(1);
+
+		//Background
+		draw.drawRect(0, 0, data.size.x, data.size.y, project.backgroundColor);
+
+		var i = layers.length - 1;
+		while(i >= 0)
+		{
+			if (EDITOR.layerEditors[i] != null && EDITOR.layerEditors[i].visible) EDITOR.layerEditors[i].draw();
+			i--;
+		}
+
+		draw.finishDrawing();
+		draw.doneRenderTarget();
+
+		var t2 = Texture.fromGLTexture(draw.gl, t, Math.floor(data.size.x), Math.floor(data.size.y));
+		texture = t2;
+
+		draw.destroyRenderTarget();
+
+		EDITOR.worldEditor.world.camera = camBackup;
+		EDITOR.worldEditor.world.updateCameraInverse();
+
+		EDITOR.worldEditorMode = modeBackup;
+
+		return texture;
+	}
+	
+	public function setOffset(pos:Vector)
+	{
+		data.offset = pos.clone();
+		unsavedChanges = true;
+	}
+
 	function get_safeToClose():Bool
 	{
 		return !unsavedChanges && stack.undoStates.length == 0 && stack.redoStates.length == 0 && path != null;
@@ -419,5 +468,10 @@ class Level
 	function get_zoom():Float
 	{
 		return camera.a;
+	}
+
+	function get_rect():Rectangle
+	{
+		return new Rectangle(data.offset.x, data.offset.y, data.size.x, data.size.y);
 	}
 }

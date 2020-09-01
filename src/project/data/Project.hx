@@ -33,6 +33,8 @@ class Project
 	public var entities:EntityTemplateList = new EntityTemplateList();
 	public var layers:Array<LayerTemplate> = [];
 	public var tilesets:Array<Tileset> = [];
+	
+	public var worldLevelPaths:Array<String> = [];
 
 	//Not exported
 	public var path:String;
@@ -154,6 +156,8 @@ class Project
 		compactExport = data.compactExport;
 		externalScript = data.externalScript;
 		playCommand = data.playCommand;
+		worldLevelPaths = data.worldLevelPaths;
+		if (data.worldLevelPaths == null) worldLevelPaths = [];
 
 		// tilesets
 		if (data.tilesets != null) for (tileset in data.tilesets) tilesets.push(Tileset.load(this, tileset));
@@ -207,6 +211,7 @@ class Project
 			layers: [for (layer in layers) layer.save()],
 			entities: [for (entity in entities.templates) entity.save()],
 			tilesets: [for (tileset in tilesets) tileset.save()],
+			worldLevelPaths: worldLevelPaths
 		};
 
 		data = projectHooks.beforeSaveProject(this, data);
@@ -253,4 +258,5 @@ typedef ProjectSaveFile =
 	layers:Array<Dynamic>,
 	entities:Array<Dynamic>,
 	tilesets:Array<Dynamic>,
+	worldLevelPaths:Array<String>
 }

@@ -47,6 +47,8 @@ class LevelManager
 		var level = this.get(path);
 		if (level != null)
 		{
+			if (EDITOR.worldEditorMode) return;
+			
 			this.moveToFront(level);
 			EDITOR.setLevel(level);
 			if (onSuccess != null)
@@ -77,9 +79,16 @@ class LevelManager
 					onError(e.stack);
 				return;
 			}
-
-			EDITOR.levelManager.levels.push(level);
-			EDITOR.setLevel(level);
+			
+			if (EDITOR.worldEditorMode)
+			{
+				EDITOR.worldEditor.addLevel(level);	
+			}
+			else
+			{
+				EDITOR.levelManager.levels.push(level);
+				EDITOR.setLevel(level);
+			}
 
 			if (onSuccess != null)
 				onSuccess(level);
@@ -133,6 +142,10 @@ class LevelManager
 
 	public function get(path:String): Level
 	{
+		for (level in EDITOR.worldEditor.world.levels)
+			if (level.managerPath == path)
+				return level;
+
 		for (level in levels)
 			if (level.managerPath == path)
 				return level;

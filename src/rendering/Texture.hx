@@ -1,5 +1,6 @@
 package rendering;
 
+import js.lib.Uint8Array;
 import js.html.webgl.RenderingContext;
 import js.Browser;
 import js.html.ImageElement;
@@ -19,6 +20,7 @@ class Texture
 	public var center:Vector;
 	public var width(get, null):Int;
 	public var height(get, null):Int;
+	public var loaded:Bool = false;
 
 	public static function fromString(data: String): Texture
 	{
@@ -39,9 +41,40 @@ class Texture
 		}
 		return null;
 	}
-	
-	public function new(image: ImageElement)
+
+	// https://stackoverflow.com/questions/8191083/can-one-easily-create-an-html-image-element-from-a-webgl-texture-object
+	public static function fromGLTexture(gl: RenderingContext, texture: js.html.webgl.Texture, width: Int, height: Int)
 	{
+		// Create a framebuffer backed by the texture
+		var framebuffer = gl.createFramebuffer();
+		gl.bindFramebuffer(RenderingContext.FRAMEBUFFER, framebuffer);
+		gl.framebufferTexture2D(RenderingContext.FRAMEBUFFER, RenderingContext.COLOR_ATTACHMENT0, RenderingContext.TEXTURE_2D, texture, 0);
+
+		// Read the contents of the framebuffer
+		var data = new Uint8Array(width * height * 4);
+		gl.readPixels(0, 0, width, height, RenderingContext.RGBA, RenderingContext.UNSIGNED_BYTE, data);
+
+		gl.deleteFramebuffer(framebuffer);
+
+		// Create a 2D canvas to store the result
+		var canvas = Browser.document.createCanvasElement();
+		canvas.width = width;
+		canvas.height = height;
+		var context = canvas.getContext('2d');
+
+		// Copy the pixels to a 2D canvas
+		var imageData = context.createImageData(width, height);
+		imageData.data.set(data);
+		context.putImageData(imageData, 0, 0);
+
+		var image = Browser.document.createImageElement();
+		image.src = canvas.toDataURL(); // haxe.io.Path.normalize(data); 
+		return new Texture(image);
+	}
+
+	public function new(?image: ImageElement)
+	{
+		if (image == null) return;
 		this.image = image;
 		
 		if (image.width <= 0) image.onload = function() { load(); };
@@ -69,6 +102,8 @@ class Texture
 				textures[name] = tex;
 			}
 		}
+
+		loaded = true;
 	}
 	
 	public inline function dispose(): Void

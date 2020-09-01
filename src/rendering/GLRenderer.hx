@@ -79,7 +79,7 @@ class GLRenderer
 	var offscreenFramebuffer: js.html.webgl.Framebuffer;
 	var offscreenTextureSize: Vector;
 
-	public function setupRenderTarget(size: Vector): Void
+	public function setupRenderTarget(size: Vector): js.html.webgl.Texture
 	{
 		offscreenTextureSize = size;
 
@@ -107,9 +107,10 @@ class GLRenderer
 
 		gl.viewport(0, 0, Math.floor(size.x), Math.floor(size.y));
 		orthoMatrix = Matrix3D.orthographic(0, size.x, 0, size.y, -100, 100);
-		EDITOR.level.camera.setIdentity();
 
 		var canRead = gl.checkFramebufferStatus(RenderingContext.FRAMEBUFFER) == RenderingContext.FRAMEBUFFER_COMPLETE;
+
+		return offscreenTexture;
 	}
 
 	public function getRenderTargetPixels(): Uint8Array
@@ -125,9 +126,9 @@ class GLRenderer
 		updateCanvasSize();
 	}
 
-	public function destroyRenderTarget(): Void
+	public function destroyRenderTarget(exceptTexture = false): Void
 	{
-		gl.deleteTexture(offscreenTexture);
+		if (!exceptTexture) gl.deleteTexture(offscreenTexture);
 		gl.deleteFramebuffer(offscreenFramebuffer);
 	}
 
@@ -241,7 +242,8 @@ class GLRenderer
 			gl.uniformMatrix4fv(pUniform, false, orthoMatrix.flatten());
 
 			var mvUniform = gl.getUniformLocation(shader.program, "matrix");
-			gl.uniformMatrix3fv(mvUniform, false, EDITOR.level.camera.flatten());
+			var cameraMatrix = EDITOR.worldEditorMode ? EDITOR.worldEditor.world.camera : EDITOR.level.camera;
+			gl.uniformMatrix3fv(mvUniform, false, cameraMatrix.flatten());
 		}
 
 		gl.drawArrays(drawMode, 0, Math.floor(positions.length / 2));
